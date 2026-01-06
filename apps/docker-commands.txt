@@ -44,3 +44,9 @@ Stop all containers
 ---------------------
 
 docker stop cicd-api cicd-app
+
+----------------------------------------------
+Utiliser le docker compose pour tout démarrer
+----------------------------------------------
+
+docker compose up --build -d
