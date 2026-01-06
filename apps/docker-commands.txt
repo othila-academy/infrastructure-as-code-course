@@ -1,0 +1,38 @@
+---------------------
+Build Node API Image
+---------------------
+
+docker build -t cicd-backend .
+
+------------------------
+Build Node API Container
+------------------------
+
+docker run --name cicd-api \
+    --rm \
+    -d \
+    -p 3000:3000
+    cicd-backend
+
+---------------------
+Build React SPA Image
+---------------------
+
+docker build -t cicd-frontend .
+
+-------------------------
+Build React SPA Container
+-------------------------
+
+docker run --name cicd-app \
+    --rm \
+    -d \
+    -p 5173:5173 \
+    -it \
+    cicd-frontend
+
+---------------------
+Stop all containers
+---------------------
+
+docker stop cicd-api cicd-app
