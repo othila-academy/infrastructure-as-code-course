@@ -1,13 +1,18 @@
-FROM node:22-alpine
-
+# Build
+FROM node:22-alpine AS build
 WORKDIR /app
 
-COPY package.json ./
-
-RUN npm install
+COPY package.json package-lock.json* ./
+RUN npm ci || npm install
 
 COPY . .
 
-EXPOSE 5173
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
-CMD ["npm", "run", "dev"]
+RUN npm run build
+
+# Serve
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
