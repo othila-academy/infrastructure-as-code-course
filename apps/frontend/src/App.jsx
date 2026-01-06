@@ -45,7 +45,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", padding: 24, maxWidth: 900 }}>
-      <h1>CI/CD Training App</h1>
+      <h1>CI/CD Training App !</h1>
       <p style={{ opacity: 0.8 }}>
         Front React (Vite) ↔ Back Express. Aucune base de données. Tout est configuré via variables
         d’environnement.
