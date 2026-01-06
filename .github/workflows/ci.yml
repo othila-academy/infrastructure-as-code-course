@@ -124,3 +124,5 @@ jobs:
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/cicd-frontend:${{ steps.meta.outputs.sha_tag }}
             ${{ secrets.ACR_LOGIN_SERVER }}/cicd-frontend:latest
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
