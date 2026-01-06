@@ -6,6 +6,10 @@ on:
     pull_request:
         branches: [main]
 
+# Security: Restrict GITHUB_TOKEN permissions to read-only content
+permissions:
+    contents: read
+
 jobs:
     backend:
         runs-on: ubuntu-latest
@@ -24,6 +28,9 @@ jobs:
 
             - name: Install dependencies
               run: npm ci
+
+            - name: Security Audit
+              run: npm audit --audit-level=high
 
             - name: Lint
               run: npm run lint
@@ -48,6 +55,9 @@ jobs:
 
             - name: Install dependencies
               run: npm ci
+
+            - name: Security Audit
+              run: npm audit --audit-level=high
 
             - name: Lint
               run: npm run lint
