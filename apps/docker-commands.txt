@@ -17,8 +17,8 @@ Build Node API Container
 docker run --name cicd-api \
     --rm \
     -d \
-    -p 3000:3000
-    --network cicd-app-net
+    -p 3000:3000 \
+    --network cicd-app-net \
     cicd-backend
 
 ---------------------
@@ -36,7 +36,7 @@ docker run --name cicd-app \
     -d \
     -p 5173:5173 \
     -it \
-    --network cicd-app-net
+    --network cicd-app-net \
     cicd-frontend
 
 ---------------------
