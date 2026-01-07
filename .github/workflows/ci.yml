@@ -56,17 +56,27 @@ jobs:
       - name: Compute tags
         id: meta
         run: |
-          SHA_TAG=${GITHUB_SHA::7}
-          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
+          VERSION=$(jq -r .version apps/backend/package.json)
+          IMAGE_NAME="${{ secrets.ACR_LOGIN_SERVER }}/cicd-backend"
+
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAGS="$IMAGE_NAME:$VERSION,$IMAGE_NAME:latest"
+          elif [ "${{ github.ref }}" == "refs/heads/recette" ]; then
+            TAGS="$IMAGE_NAME:$VERSION-RC"
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            TAGS="$IMAGE_NAME:$VERSION-SNAPSHOT"
+          else
+            TAGS="$IMAGE_NAME:$VERSION-${GITHUB_SHA::7}"
+          fi
+
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
       - name: Build & Push
         uses: docker/build-push-action@v6
         with:
           context: ./apps/backend
           push: true
-          tags: |
-            ${{ secrets.ACR_LOGIN_SERVER }}/cicd-backend:${{ steps.meta.outputs.sha_tag }}
-            ${{ secrets.ACR_LOGIN_SERVER }}/cicd-backend:latest
+          tags: ${{ steps.meta.outputs.tags }}
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -113,16 +123,26 @@ jobs:
       - name: Compute tags
         id: meta
         run: |
-          SHA_TAG=${GITHUB_SHA::7}
-          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
+          VERSION=$(jq -r .version apps/frontend/package.json)
+          IMAGE_NAME="${{ secrets.ACR_LOGIN_SERVER }}/cicd-frontend"
+
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAGS="$IMAGE_NAME:$VERSION,$IMAGE_NAME:latest"
+          elif [ "${{ github.ref }}" == "refs/heads/recette" ]; then
+            TAGS="$IMAGE_NAME:$VERSION-RC"
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            TAGS="$IMAGE_NAME:$VERSION-SNAPSHOT"
+          else
+            TAGS="$IMAGE_NAME:$VERSION-${GITHUB_SHA::7}"
+          fi
+
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
       - name: Build & Push
         uses: docker/build-push-action@v6
         with:
           context: ./apps/frontend
           push: true
-          tags: |
-            ${{ secrets.ACR_LOGIN_SERVER }}/cicd-frontend:${{ steps.meta.outputs.sha_tag }}
-            ${{ secrets.ACR_LOGIN_SERVER }}/cicd-frontend:latest
+          tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
