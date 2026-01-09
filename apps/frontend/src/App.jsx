@@ -85,10 +85,34 @@ export default function App() {
         Recharger
       </button>
 
+      <a
+        href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ 
+          marginTop: 16, 
+          marginLeft: 12,
+          padding: "10px 14px", 
+          cursor: "pointer",
+          display: "inline-block",
+          textDecoration: "none",
+          backgroundColor: "#ff0000",
+          color: "white",
+          borderRadius: 4,
+          fontWeight: "bold"
+        }}
+      >
+        🎵 Never Gonna Give You Up
+      </a>
+
       <p style={{ marginTop: 24, opacity: 0.7 }}>
         Astuce CI/CD : injecter <code>APP_VERSION</code>, <code>GIT_SHA</code>, <code>BUILD_DATE</code>{" "}
         côté back pour visualiser les déploiements.
       </p>
+
+
+
+
     </div>
   );
 }
