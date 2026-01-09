@@ -1,0 +1,136 @@
+name: Backend CI
+
+on:
+    push:
+        branches:
+            - develop
+            - recette
+            - main
+        paths:
+            - "apps/backend/**"
+            - ".github/workflows/backend.yml"
+        tags:
+            - "backend-v*"
+    pull_request:
+        branches:
+            - develop
+            - recette
+            - main
+        paths:
+            - "apps/backend/**"
+            - ".github/workflows/backend.yml"
+
+jobs:
+    backend-ci:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: ./apps/backend
+        steps:
+            - uses: actions/checkout@v4
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  cache: "npm"
+                  cache-dependency-path: apps/backend/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Security Audit
+              run: npm audit --audit-level=high || true
+            - name: Lint
+              run: npm run lint
+            - name: Test
+              run: npm run test
+
+    release:
+        name: Automatic Release
+        needs: backend-ci
+        # Se lance sur push vers main, recette ou develop
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/recette' || github.ref == 'refs/heads/develop')
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            issues: write
+            pull-requests: write
+        defaults:
+            run:
+                working-directory: ./apps/backend
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  cache: "npm"
+                  cache-dependency-path: apps/backend/package-lock.json
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Semantic Release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: npx semantic-release
+
+    backend-build-push:
+        needs: backend-ci
+        runs-on: ubuntu-latest
+        if: github.event_name != 'pull_request'
+        defaults:
+            run:
+                working-directory: ./apps/backend
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Login to ACR
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ secrets.ACR_LOGIN_SERVER }}
+                  username: ${{ secrets.ACR_USERNAME }}
+                  password: ${{ secrets.ACR_PASSWORD }}
+
+            - name: Compute tags
+              id: meta
+              run: |
+                  VERSION=$(jq -r .version package.json)
+                  IMAGE_NAME="${{ secrets.ACR_LOGIN_SERVER }}/cicd-backend"
+                  TAGS=""
+
+                  if [[ "${{ github.ref }}" == "refs/tags/backend-v"* ]]; then
+                    GIT_TAG_VERSION=${GITHUB_REF#refs/tags/backend-v}
+                    
+                    if [ "$GIT_TAG_VERSION" != "$VERSION" ]; then
+                      echo "::error::Version mismatch! $GIT_TAG_VERSION vs $VERSION"
+                      exit 1
+                    fi
+                    
+                    if [[ "$VERSION" == *"-"* ]]; then
+                       # Pre-release (ex: 1.0.1-RC.1)
+                       TAGS="$IMAGE_NAME:$VERSION"
+                    else
+                       # Release officielle
+                       TAGS="$IMAGE_NAME:$VERSION,$IMAGE_NAME:latest"
+                    fi
+
+                  else
+                     # Fallback: Hash commit pour les builds sans tags (ex: premier push dev avant semantic release)
+                     TAGS="$IMAGE_NAME:sha-${GITHUB_SHA::7}"
+                  fi
+
+                  echo "Generated Tags: $TAGS"
+                  echo "tags=$TAGS" >> $GITHUB_OUTPUT
+
+            - name: Build & Push
+              uses: docker/build-push-action@v6
+              with:
+                  context: ./apps/backend
+                  push: true
+                  tags: ${{ steps.meta.outputs.tags }}
