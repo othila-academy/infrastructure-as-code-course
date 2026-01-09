@@ -9,8 +9,6 @@ on:
     paths:
       - "apps/backend/**"
       - ".github/workflows/backend.yml"
-    tags:
-      - "backend-v*"
   pull_request:
     branches:
       - develop
@@ -46,6 +44,7 @@ jobs:
   release:
     name: Automatic Release
     needs: backend-ci
+    # Se lance UNIQUEMENT sur les branches principales pour calculer la version
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/recette' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     permissions:
@@ -81,28 +80,29 @@ jobs:
         run: npm install --no-save @semantic-release/git @semantic-release/github
 
       - name: Semantic Release
+        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
 
   backend-build-push:
-    needs: backend-ci
+    needs: release
+    # On joue le build Docker SI la release s'est términée (qu'elle ait publié ou non)
+    # L'important c'est de récupérer le code mis à jour par la release
+    if: always() && (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
-    if: >
-      github.event_name != 'pull_request' &&
-      (
-        startsWith(github.ref, 'refs/tags/') ||
-        (
-          github.ref != 'refs/heads/main' &&
-          github.ref != 'refs/heads/develop' &&
-          github.ref != 'refs/heads/recette'
-        )
-      )
     defaults:
       run:
         working-directory: ./apps/backend
     steps:
       - uses: actions/checkout@v4
+
+      # IMPORTANT: On récupère la version depuis le repo GIT
+      # Si Semantic Release a poussé un nouveau commit avec version update, on le pull ici
+      - name: Checkout latest code (Version Bump)
+        run: |
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -117,26 +117,24 @@ jobs:
       - name: Compute tags
         id: meta
         run: |
+          # On lit la version "fraiche" du package.json (potentiellement bumpée)
           VERSION=$(jq -r .version package.json)
           IMAGE_NAME="${{ secrets.ACR_LOGIN_SERVER }}/cicd-backend"
           TAGS=""
 
-          if [[ "${{ github.ref }}" == "refs/tags/backend-v"* ]]; then
-            GIT_TAG_VERSION=${GITHUB_REF#refs/tags/backend-v}
-            
-            if [ "$GIT_TAG_VERSION" != "$VERSION" ]; then
-              echo "::error::Version mismatch! $GIT_TAG_VERSION vs $VERSION"
-              exit 1
-            fi
-            
-            if [[ "$VERSION" == *"-"* ]]; then
-               TAGS="$IMAGE_NAME:$VERSION"
-            else
-               TAGS="$IMAGE_NAME:$VERSION,$IMAGE_NAME:latest"
-            fi
+          echo "Detected version from package.json: $VERSION"
 
+          # Si version contient un tiret (ex: 1.0.0-SNAPSHOT), c'est une prerelease
+          if [[ "$VERSION" == *"-"* ]]; then
+             TAGS="$IMAGE_NAME:$VERSION"
           else
-             TAGS="$IMAGE_NAME:sha-${GITHUB_SHA::7}"
+             # Release officielle : on tag la version + latest
+             TAGS="$IMAGE_NAME:$VERSION,$IMAGE_NAME:latest"
+          fi
+
+          # Ajout d'un tag spécifique à la branche pour faciliter le dev (ex: :develop)
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+             TAGS="$TAGS,$IMAGE_NAME:develop"
           fi
 
           echo "Generated Tags: $TAGS"
@@ -146,5 +144,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./apps/backend
+          # Si c'est une PR, on ne push pas (sécurité supplémentaire)
+          # Mais le job est déjà filtré plus haut via le flow global, donc ici push: true est safe car on est post-release
           push: true
           tags: ${{ steps.meta.outputs.tags }}

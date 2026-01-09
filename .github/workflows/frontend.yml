@@ -9,8 +9,6 @@ on:
     paths:
       - "apps/frontend/**"
       - ".github/workflows/frontend.yml"
-    tags:
-      - "frontend-v*"
   pull_request:
     branches:
       - develop
@@ -62,8 +60,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # FIX: Ensure we are on the correct branch and up-to-date with remote
-      # Semantic Release checks if local HEAD == Remote HEAD.
-      # Actions/Checkout often leaves us detached or slightly behind if history is complex.
       - name: Checkout Branch
         run: |
           git checkout ${{ github.ref_name }}
@@ -79,37 +75,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # FIX: Installation explicite du plugin git pour semantic-release
       - name: Install Semantic Release Plugins
         run: npm install --no-save @semantic-release/git @semantic-release/github
 
       - name: Semantic Release
+        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
 
   frontend-build-push:
-    needs: frontend-ci
+    needs: release
+    if: always() && (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
-    # LOGIQUE DE BUILD :
-    # 1. On build si c'est un TAG (généré par la release)
-    # 2. On build si c'est une feature branch (pour tester le Dockerfile)
-    # 3. ON NE BUILD PAS sur main/develop/recette lors du push initial (car le job 'release' va créer un tag qui relancera ce job)
-    if: >
-      github.event_name != 'pull_request' &&
-      (
-        startsWith(github.ref, 'refs/tags/') ||
-        (
-          github.ref != 'refs/heads/main' &&
-          github.ref != 'refs/heads/develop' &&
-          github.ref != 'refs/heads/recette'
-        )
-      )
     defaults:
       run:
         working-directory: ./apps/frontend
     steps:
       - uses: actions/checkout@v4
+
+      # IMPORTANT: On récupère la version potentiellement bumpée par l'étape précédente
+      - name: Checkout latest code (Version Bump)
+        run: |
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -128,22 +117,16 @@ jobs:
           IMAGE_NAME="${{ secrets.ACR_LOGIN_SERVER }}/cicd-frontend"
           TAGS=""
 
-          if [[ "${{ github.ref }}" == "refs/tags/frontend-v"* ]]; then
-            GIT_TAG_VERSION=${GITHUB_REF#refs/tags/frontend-v}
-            
-            if [ "$GIT_TAG_VERSION" != "$VERSION" ]; then
-              echo "::error::Version mismatch! $GIT_TAG_VERSION vs $VERSION"
-              exit 1
-            fi
+          echo "Detected version from package.json: $VERSION"
 
-            if [[ "$VERSION" == *"-"* ]]; then
-               TAGS="$IMAGE_NAME:$VERSION"
-            else
-               TAGS="$IMAGE_NAME:$VERSION,$IMAGE_NAME:latest"
-            fi
-
+          if [[ "$VERSION" == *"-"* ]]; then
+             TAGS="$IMAGE_NAME:$VERSION"
           else
-             TAGS="$IMAGE_NAME:sha-${GITHUB_SHA::7}"
+             TAGS="$IMAGE_NAME:$VERSION,$IMAGE_NAME:latest"
+          fi
+
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+             TAGS="$TAGS,$IMAGE_NAME:develop"
           fi
 
           echo "Generated Tags: $TAGS"
