@@ -46,7 +46,6 @@ jobs:
   release:
     name: Automatic Release
     needs: backend-ci
-    # Se lance UNIQUEMENT sur les branches principales pour calculer la version
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/recette' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     permissions:
@@ -62,6 +61,12 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # FIX: Ensure we are on the correct branch and up-to-date with remote
+      - name: Checkout Branch
+        run: |
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
@@ -72,7 +77,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # FIX: Installation explicite du plugin git pour semantic-release
       - name: Install Semantic Release Plugins
         run: npm install --no-save @semantic-release/git @semantic-release/github
 
@@ -84,10 +88,6 @@ jobs:
   backend-build-push:
     needs: backend-ci
     runs-on: ubuntu-latest
-    # LOGIQUE DE BUILD :
-    # 1. On build si c'est un TAG (généré par la release)
-    # 2. On build si c'est une feature branch (pour tester le Dockerfile)
-    # 3. ON NE BUILD PAS sur main/develop/recette lors du push initial (car le job 'release' va créer un tag qui relancera ce job)
     if: >
       github.event_name != 'pull_request' &&
       (
@@ -136,7 +136,6 @@ jobs:
             fi
 
           else
-             # Cas Feature Branch
              TAGS="$IMAGE_NAME:sha-${GITHUB_SHA::7}"
           fi
 

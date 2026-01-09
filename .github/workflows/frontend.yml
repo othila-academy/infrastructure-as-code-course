@@ -61,6 +61,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # FIX: Ensure we are on the correct branch and up-to-date with remote
+      # Semantic Release checks if local HEAD == Remote HEAD.
+      # Actions/Checkout often leaves us detached or slightly behind if history is complex.
+      - name: Checkout Branch
+        run: |
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
