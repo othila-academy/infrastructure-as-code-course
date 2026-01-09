@@ -42,7 +42,11 @@ jobs:
   release:
     name: Automatic Release
     needs: frontend-ci
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/recette' || github.ref == 'refs/heads/develop')
+    # Se lance sur les branches principales SAUF si c'est déjà un commit de release
+    if: |
+      github.event_name == 'push' && 
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/recette' || github.ref == 'refs/heads/develop') &&
+      !contains(github.event.head_commit.message, 'chore(release):')
     runs-on: ubuntu-latest
     permissions:
       contents: write

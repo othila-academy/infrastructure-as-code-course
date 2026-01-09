@@ -43,7 +43,11 @@ jobs:
     name: Automatic Release
     needs: backend-ci
     # Se lance UNIQUEMENT sur les branches principales pour calculer la version
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/recette' || github.ref == 'refs/heads/develop')
+    # MAIS on skip si le commit est déjà un commit de release (évite la boucle infinie)
+    if: |
+      github.event_name == 'push' && 
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/recette' || github.ref == 'refs/heads/develop') &&
+      !contains(github.event.head_commit.message, 'chore(release):')
     runs-on: ubuntu-latest
     permissions:
       contents: write

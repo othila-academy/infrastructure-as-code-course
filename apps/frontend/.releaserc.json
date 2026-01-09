@@ -11,7 +11,7 @@
     "@semantic-release/npm",
     ["@semantic-release/git", {
       "assets": ["package.json", "package-lock.json"],
-      "message": "chore(release): frontend ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      "message": "chore(release): frontend ${nextRelease.version}\n\n${nextRelease.notes}"
     }],
     "@semantic-release/github"
   ]
