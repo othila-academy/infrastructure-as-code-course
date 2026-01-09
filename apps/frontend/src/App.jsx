@@ -13,6 +13,8 @@ export default function App() {
   const [info, setInfo] = useState(null);
   const [quote, setQuote] = useState(null);
   const [error, setError] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [modalPosition, setModalPosition] = useState({ x: 50, y: 50 });
 
   const endpoints = useMemo(() => {
     return {
@@ -42,6 +44,18 @@ export default function App() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoints.health]);
+
+  useEffect(() => {
+    if (!showModal) return;
+
+    const interval = setInterval(() => {
+      const x = Math.random() * 80 + 10; // Entre 10% et 90%
+      const y = Math.random() * 80 + 10; // Entre 10% et 90%
+      setModalPosition({ x, y });
+    }, 500); // Change de position toutes les 500ms
+
+    return () => clearInterval(interval);
+  }, [showModal]);
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", padding: 24, maxWidth: 900 }}>
@@ -85,25 +99,81 @@ export default function App() {
         Recharger
       </button>
 
-      <a
-        href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        onClick={() => setShowModal(true)}
         style={{ 
           marginTop: 16, 
           marginLeft: 12,
           padding: "10px 14px", 
           cursor: "pointer",
-          display: "inline-block",
-          textDecoration: "none",
           backgroundColor: "#ff0000",
           color: "white",
+          border: "none",
           borderRadius: 4,
           fontWeight: "bold"
         }}
       >
         🎵 Never Gonna Give You Up
-      </a>
+      </button>
+
+      {showModal && (
+        <div 
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000
+          }}
+          onClick={() => setShowModal(false)}
+        >
+          <div 
+            style={{
+              position: "absolute",
+              left: `${modalPosition.x}%`,
+              top: `${modalPosition.y}%`,
+              transform: "translate(-50%, -50%)",
+              width: "90%",
+              maxWidth: 800,
+              aspectRatio: "16/9",
+              transition: "left 0.5s ease-out, top 0.5s ease-out"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowModal(false)}
+              style={{
+                position: "absolute",
+                top: -40,
+                right: 0,
+                padding: "8px 16px",
+                cursor: "pointer",
+                backgroundColor: "white",
+                border: "none",
+                borderRadius: 4,
+                fontWeight: "bold",
+                fontSize: 16
+              }}
+            >
+              ✕ Fermer
+            </button>
+            <iframe
+              width="100%"
+              height="100%"
+              src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1"
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
 
       <p style={{ marginTop: 24, opacity: 0.7 }}>
         Astuce CI/CD : injecter <code>APP_VERSION</code>, <code>GIT_SHA</code>, <code>BUILD_DATE</code>{" "}
